@@ -90,19 +90,32 @@ const productos = {
     ]
 };
 
-let cuenta = JSON.parse(localStorage.getItem('comanda_activa')) || {};
+// Protección al parsear localStorage (por si hay datos corruptos)
+let cuenta;
+try {
+    cuenta = JSON.parse(localStorage.getItem('comanda_activa')) || {};
+    if (typeof cuenta !== 'object' || Array.isArray(cuenta)) cuenta = {};
+} catch (e) {
+    console.warn('comanda_activa inválida en localStorage, se resetea:', e);
+    cuenta = {};
+}
 
 function renderizarBotones() {
-    for (let cat in productos) {
+    // Iterar solo las claves propias y limpiar contenedor antes de renderizar
+    Object.keys(productos).forEach(cat => {
         const div = document.getElementById(cat);
+        if (!div) return;
+        div.innerHTML = ''; // limpiar antes de añadir
         productos[cat].forEach(p => {
             const btn = document.createElement('button');
             btn.className = 'btn-prod';
+            btn.type = 'button';
             btn.innerHTML = `<span class="icon">${p.icono}</span> <span>${p.nombre}</span> <b>${p.precio.toFixed(2)}€</b>`;
-            btn.onclick = () => añadir(p.nombre, p.precio);
+            btn.addEventListener('click', () => añadir(p.nombre, p.precio));
             div.appendChild(btn);
         });
-    }
+        console.log(`Renderizados ${productos[cat].length} botones en categoría "${cat}"`);
+    });
 }
 
 function añadir(nombre, precio) {
@@ -129,17 +142,38 @@ function actualizarVista() {
     lista.innerHTML = "";
     let total = 0;
 
-    for (let p in cuenta) {
-        const subtotal = cuenta[p].cantidad * cuenta[p].precio;
+    // Construir filas usando DOM para evitar problemas con comillas/caracteres especiales
+    Object.keys(cuenta).forEach(p => {
+        const cantidad = cuenta[p].cantidad;
+        const precio = cuenta[p].precio;
+        const subtotal = cantidad * precio;
         total += subtotal;
-        lista.innerHTML += `
-            <tr>
-                <td>${p}</td>
-                <td>${cuenta[p].cantidad}</td>
-                <td>${subtotal.toFixed(2)}€</td>
-                <td><button class="btn-restar" onclick="restar('${p}')">-</button></td>
-            </tr>`;
-    }
+
+        const tr = document.createElement('tr');
+
+        const tdProd = document.createElement('td');
+        tdProd.textContent = p;
+        tr.appendChild(tdProd);
+
+        const tdCant = document.createElement('td');
+        tdCant.textContent = cantidad;
+        tr.appendChild(tdCant);
+
+        const tdSub = document.createElement('td');
+        tdSub.textContent = `${subtotal.toFixed(2)}€`;
+        tr.appendChild(tdSub);
+
+        const tdAcc = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.className = 'btn-restar';
+        btn.type = 'button';
+        btn.textContent = '-';
+        btn.addEventListener('click', () => restar(p));
+        tdAcc.appendChild(btn);
+        tr.appendChild(tdAcc);
+
+        lista.appendChild(tr);
+    });
 
     totalElem.innerText = `Total: ${total.toFixed(2)}€`;
     localStorage.setItem('comanda_activa', JSON.stringify(cuenta));
@@ -158,6 +192,3 @@ actualizarVista();
 
 </body>
 </html>
-
-
-
